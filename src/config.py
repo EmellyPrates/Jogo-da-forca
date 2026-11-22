@@ -1,13 +1,29 @@
-# Configurações centrais do jogo (tela, cores e caminhos de arquivos).
 LARGURA_TELA = 800
 ALTURA_TELA = 600
 FPS = 60
 
-TITULO_JOGO = "Projeto Final - Pygame"
+TITULO_JOGO = "IA FORC-A"
 
 BRANCO = (255, 255, 255)
 PRETO = (0, 0, 0)
-CINZA = (212,212,212)
+CINZA = (212, 212, 212)
+CINZA_ESCURO = (90, 90, 90)
+FUNDO = (24, 28, 44)
+PAINEL = (40, 46, 70)
+TEXTO = (235, 238, 250)
+TEXTO_SUAVE = (160, 168, 195)
+DESTAQUE = (120, 190, 255)
+VERDE = (110, 210, 140)
+VERMELHO = (240, 100, 100)
+AMARELO = (245, 205, 100)
+FORCA_COR = (200, 170, 120)
+
+MAX_ERROS = 6
+PALAVRAS_POR_PARTIDA = 5
+PONTOS_ACERTO = 10
+CUSTO_CONFERIR = 5
+CHANCE_IA_ERRAR = 0.3
 
 CAMINHO_RECORDE = "data/recorde.txt"
+CAMINHO_PALAVRAS = "data/palavras.txt"
 CAMINHO_SPRITES = "assets/imagens/spritesheet.bmp"

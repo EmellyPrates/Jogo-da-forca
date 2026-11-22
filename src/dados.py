@@ -15,5 +15,28 @@ def carregar_recorde(caminho_arquivo):
 
             return int(conteudo)
 
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         return 0
+
+
+def carregar_palavras(caminho_arquivo):
+    palavras = []
+
+    try:
+        with open(caminho_arquivo, "r", encoding="utf-8") as arquivo:
+            for linha in arquivo:
+                linha = linha.strip()
+
+                if ";" not in linha:
+                    continue
+
+                palavra, dica = linha.split(";", 1)
+                palavra = palavra.strip().upper()
+
+                if palavra.isalpha():
+                    palavras.append((palavra, dica.strip()))
+
+    except FileNotFoundError:
+        return []
+
+    return palavras

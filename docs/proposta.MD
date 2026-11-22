@@ -121,3 +121,17 @@ Liste até três funcionalidades extras para implementar somente depois que a ve
 - Melhoria 1: tela inicial com as instruções.
 - Melhoria 2: ranking com os melhores jogadores.
 - Melhoria 3: sons de acerto e erro.
+
+## 15. Atualizações do planejamento
+
+Registro das decisões tomadas ao transformar a proposta em uma versão executável. O escopo continua o mesmo; o que mudou foram detalhes que a proposta deixava em aberto.
+
+- **Pontuação:** cada letra certa vale 10 pontos por chute (não por ocorrência da letra na palavra).
+- **Conferir a IA (TAB):** revela se a sugestão atual está certa ou errada, custa 5 pontos e só pode ser feito uma vez por sugestão. A pontuação nunca fica negativa.
+- **Frequência de erro da IA:** a IA erra em cerca de 30% das sugestões (valor em `CHANCE_IA_ERRAR`, em `src/config.py`), e nunca sugere uma letra já usada.
+- **Controles extras:** ENTER também avança para a próxima palavra, e R reinicia a partida depois da vitória ou da derrota.
+- **Palavras:** ficam em `data/palavras.txt` no formato `PALAVRA;dica`, sem acentos, para que as letras A a Z do teclado sejam suficientes. São sorteadas 5 por partida.
+- **Visual:** o boneco e a forca são desenhados com formas do Pygame; a spritesheet do template não é usada nesta etapa.
+- **Recorde:** é salvo ao terminar a partida (vitória ou derrota) e ao sair com ESC.
+- **Melhorias:** continuam previstas tela inicial, ranking e sons (seção 14).
+

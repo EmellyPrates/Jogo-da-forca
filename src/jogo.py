@@ -5,139 +5,217 @@ from src.config import (
     ALTURA_TELA,
     FPS,
     TITULO_JOGO,
-    CINZA,
+    MAX_ERROS,
+    PALAVRAS_POR_PARTIDA,
+    PONTOS_ACERTO,
+    CUSTO_CONFERIR,
+    CHANCE_IA_ERRAR,
     CAMINHO_RECORDE,
-    CAMINHO_SPRITES,
+    CAMINHO_PALAVRAS,
 )
-
 from src.funcoes import (
     calcular_pontos,
-    jogador_perdeu,
-    limitar_valor,
-    verificar_colisao,
     tomar_dano,
+    jogador_perdeu,
+    cobrar_conferencia,
+    sortear_palavras,
+    palavra_completa,
+    contar_ocorrencias,
+    escolher_sugestao_ia,
+    sugestao_esta_certa,
+    letra_valida,
 )
-from src.sprites import pegar_sprite
-from src.dados import (
-    salvar_recorde,
-    carregar_recorde,
-)
+from src.dados import carregar_recorde, salvar_recorde, carregar_palavras
+from src.desenho import criar_fontes, desenhar_tela
+
+
+def criar_estado(palavras, recorde):
+    estado = {
+        "palavras": sortear_palavras(palavras, PALAVRAS_POR_PARTIDA),
+        "indice": 0,
+        "usadas": [],
+        "vidas": MAX_ERROS,
+        "pontos": 0,
+        "recorde": recorde,
+        "fase": "jogando",
+        "mensagem": ("Digite uma letra ou use a sugestão da IA.", "info"),
+        "sugestao": "",
+        "sugestao_certa": False,
+        "conferida": False,
+    }
+    gerar_sugestao(estado)
+    return estado
+
+
+def palavra_atual(estado):
+    return estado["palavras"][estado["indice"]][0]
+
+
+def dica_atual(estado):
+    return estado["palavras"][estado["indice"]][1]
+
+
+def gerar_sugestao(estado):
+    palavra = palavra_atual(estado)
+    estado["sugestao"] = escolher_sugestao_ia(palavra, estado["usadas"], CHANCE_IA_ERRAR)
+    estado["sugestao_certa"] = sugestao_esta_certa(estado["sugestao"], palavra)
+    estado["conferida"] = False
+
+
+def registrar_recorde(estado):
+    if estado["pontos"] > estado["recorde"]:
+        estado["recorde"] = estado["pontos"]
+        salvar_recorde(CAMINHO_RECORDE, estado["recorde"])
+
+
+def verificar_fim_da_palavra(estado):
+    palavra = palavra_atual(estado)
+
+    if palavra_completa(palavra, estado["usadas"]):
+        ultima = estado["indice"] == len(estado["palavras"]) - 1
+        estado["fase"] = "vitoria" if ultima else "palavra_completa"
+        if ultima:
+            estado["mensagem"] = ("Você descobriu todas as palavras! Parabéns!", "ok")
+            registrar_recorde(estado)
+        else:
+            estado["mensagem"] = ("Palavra descoberta! Aperte ENTER para continuar.", "ok")
+    elif jogador_perdeu(estado["vidas"]):
+        estado["fase"] = "derrota"
+        estado["mensagem"] = ("O boneco foi completado. Fim de jogo.", "erro")
+        registrar_recorde(estado)
+    else:
+        gerar_sugestao(estado)
+
+
+def jogar_letra(estado, letra, pela_ia=False):
+    if estado["fase"] != "jogando":
+        return
+
+    if letra in estado["usadas"]:
+        estado["mensagem"] = (f"A letra {letra} já foi usada.", "info")
+        return
+
+    palavra = palavra_atual(estado)
+    estado["usadas"].append(letra)
+
+    if letra in palavra:
+        estado["pontos"] = calcular_pontos(estado["pontos"], PONTOS_ACERTO)
+        vezes = contar_ocorrencias(letra, palavra)
+        if pela_ia:
+            estado["mensagem"] = (f"A IA acertou! A letra {letra} aparece {vezes}x. +{PONTOS_ACERTO} pontos.", "ok")
+        else:
+            estado["mensagem"] = (f"Acertou! A letra {letra} aparece {vezes}x. +{PONTOS_ACERTO} pontos.", "ok")
+    else:
+        estado["vidas"] = tomar_dano(estado["vidas"], 1)
+        if pela_ia:
+            estado["mensagem"] = (f"A IA errou! Você aceitou {letra} sem conferir e perdeu uma parte do boneco.", "erro")
+        else:
+            estado["mensagem"] = (f"A letra {letra} não está na palavra.", "erro")
+
+    verificar_fim_da_palavra(estado)
+
+
+def aceitar_sugestao(estado):
+    if estado["fase"] == "jogando":
+        jogar_letra(estado, estado["sugestao"], pela_ia=True)
+
+
+def conferir_sugestao(estado):
+    if estado["fase"] != "jogando":
+        return
+
+    if estado["conferida"]:
+        estado["mensagem"] = ("Essa sugestão já foi conferida.", "info")
+        return
+
+    estado["pontos"] = cobrar_conferencia(estado["pontos"], CUSTO_CONFERIR)
+    estado["conferida"] = True
+
+    if estado["sugestao_certa"]:
+        estado["mensagem"] = (f"Conferência feita (-{CUSTO_CONFERIR}): a sugestão está correta.", "ok")
+    else:
+        estado["mensagem"] = (f"Conferência feita (-{CUSTO_CONFERIR}): a IA errou desta vez!", "erro")
+
+
+def avancar_palavra(estado):
+    if estado["fase"] != "palavra_completa":
+        return
+
+    estado["indice"] += 1
+    estado["usadas"] = []
+    estado["vidas"] = MAX_ERROS
+    estado["fase"] = "jogando"
+    estado["mensagem"] = ("Nova palavra! Digite uma letra ou use a IA.", "info")
+    gerar_sugestao(estado)
+
+
+def processar_evento_tecla(estado, evento, palavras):
+    if evento.key == pygame.K_ESCAPE:
+        return None
+
+    if evento.key == pygame.K_RETURN:
+        if estado["fase"] == "palavra_completa":
+            avancar_palavra(estado)
+        else:
+            aceitar_sugestao(estado)
+    elif evento.key == pygame.K_TAB:
+        conferir_sugestao(estado)
+    elif evento.key == pygame.K_r and estado["fase"] in ("vitoria", "derrota"):
+        return criar_estado(palavras, estado["recorde"])
+    elif pygame.K_a <= evento.key <= pygame.K_z:
+        letra = chr(evento.key).upper()
+        if letra_valida(letra):
+            jogar_letra(estado, letra)
+
+    return estado
+
+
+def processar_eventos(estado, palavras):
+    for evento in pygame.event.get():
+        if evento.type == pygame.QUIT:
+            return None
+
+        if evento.type == pygame.KEYDOWN:
+            estado = processar_evento_tecla(estado, evento, palavras)
+            if estado is None:
+                return None
+
+    return estado
 
 
 def executar_jogo():
-    """Executa o loop principal do jogo e controla estado, colisões e pontuação."""
     pygame.init()
-    
+
+    palavras = carregar_palavras(CAMINHO_PALAVRAS)
+    if not palavras:
+        print(f"Nenhuma palavra encontrada em {CAMINHO_PALAVRAS}.")
+        pygame.quit()
+        return
 
     tela = pygame.display.set_mode((LARGURA_TELA, ALTURA_TELA))
     pygame.display.set_caption(TITULO_JOGO)
-
     relogio = pygame.time.Clock()
-    rodando = True
+    fontes = criar_fontes()
 
-    # 1. Carregando as imagens recortadas do Spritesheet
+    estado = criar_estado(palavras, carregar_recorde(CAMINHO_RECORDE))
+    ultimo_estado = estado
 
-
-    # Jogador: usando tamanho 110x110 para capturar o quadrado perfeitamente
-    player_image = pegar_sprite(CAMINHO_SPRITES, x=110, y=120, width=190, height=190, scale=0.5)
-
-    # Gema pequena: usando tamanho 64x64
-    gem_image    = pegar_sprite(CAMINHO_SPRITES, x=900, y=690, width=200, height=200, scale=0.5)
-
-    # Morcego: usando tamanho 180x120 por causa das asas abertas
-    bat_image    = pegar_sprite(CAMINHO_SPRITES, x=905, y=1060, width=200, height=130, scale=0.5)
-    
-    # 2. Criando a estrutura de Sprites usando Dicionários
-    jogador = {
-        "imagem": player_image,
-        "rect": player_image.get_rect(topleft=(100, 100))
-    }
-
-    gema = {
-        "imagem": gem_image,
-        "rect": gem_image.get_rect(topleft=(500, 300))
-    }
-    
-    inimigo = {
-        "imagem": bat_image,
-        "rect": bat_image.get_rect(topleft=(200, 500))
-    }
-
-    velocidade = 5
-    pontos = 0
-    vidas = 3
-    recorde = carregar_recorde(CAMINHO_RECORDE)
-
-    # Loop principal: processa entrada, atualiza estado e renderiza a cena.
-    while rodando:
+    while estado is not None:
         relogio.tick(FPS)
 
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                rodando = False
+        estado = processar_eventos(estado, palavras)
+        if estado is None:
+            break
 
-        teclas = pygame.key.get_pressed()
-
-        # Movimentação alterando direto os eixos X e Y do retângulo do jogador
-        if teclas[pygame.K_LEFT]:
-            jogador["rect"].x -= velocidade
-        if teclas[pygame.K_RIGHT]:
-            jogador["rect"].x += velocidade
-        if teclas[pygame.K_UP]:
-            jogador["rect"].y -= velocidade
-        if teclas[pygame.K_DOWN]:
-            jogador["rect"].y += velocidade
-
-        # Limitando o jogador dentro das bordas da tela usando as propriedades do Rect
-        jogador["rect"].x = limitar_valor(jogador["rect"].x, 0, LARGURA_TELA - jogador["rect"].width)
-        jogador["rect"].y = limitar_valor(jogador["rect"].y, 0, ALTURA_TELA - jogador["rect"].height)
-
-        # Verificação de colisão com a Gema (antigo 'item')
-        if verificar_colisao(jogador["rect"], gema["rect"]):
-            pontos = calcular_pontos(pontos, 10)
-
-            # Move a gema de lugar ao coletar
-            gema["rect"].x += 80
-            gema["rect"].y += 50
-
-            # Se a gema sair da tela, volta para uma posição segura
-            if gema["rect"].x > LARGURA_TELA - gema["rect"].width:
-                gema["rect"].x = 50
-            if gema["rect"].y > ALTURA_TELA - gema["rect"].height:
-                gema["rect"].y = 50
-
-        # Verificação de colisão com o Inimigo
-        if verificar_colisao(jogador["rect"], inimigo["rect"]):
-            vidas = tomar_dano(vidas, 1)
-
-            # Afasta o inimigo ao colidir
-            inimigo["rect"].x += 80
-            inimigo["rect"].y += 50
-
-            if inimigo["rect"].x > LARGURA_TELA - inimigo["rect"].width:
-                inimigo["rect"].x = 50
-            if inimigo["rect"].y > ALTURA_TELA - inimigo["rect"].height:
-                inimigo["rect"].y = 50
-
-        # Regras de fim de jogo e recorde
-        if jogador_perdeu(vidas):
-            rodando = False
-
-        if pontos > recorde:
-            recorde = pontos
-            salvar_recorde(CAMINHO_RECORDE, recorde)
-
-        pygame.display.set_caption(
-            f"{TITULO_JOGO} | Pontos: {pontos} | Recorde: {recorde} | Vidas: {vidas}"
+        ultimo_estado = estado
+        desenhar_tela(
+            tela,
+            fontes,
+            estado,
+            palavra_atual(estado),
+            dica_atual(estado),
+            len(estado["palavras"]),
         )
 
-        tela.fill(CINZA)
-
-        # Desenhando os elementos na tela passando a imagem e o rect de cada dicionário
-        tela.blit(gema["imagem"], gema["rect"])
-        tela.blit(inimigo["imagem"], inimigo["rect"])
-        tela.blit(jogador["imagem"], jogador["rect"])
-
-        pygame.display.flip()
-
+    registrar_recorde(ultimo_estado)
     pygame.quit()

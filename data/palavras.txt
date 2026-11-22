@@ -1,0 +1,12 @@
+PRIVACIDADE;Controle sobre quais dados pessoais você compartilha
+ALGORITMO;Sequência de passos que o sistema segue para resolver algo
+DEEPFAKE;Vídeo ou áudio falso criado por IA imitando uma pessoa
+VIES;Tendência injusta aprendida a partir de dados enviesados
+TRANSPARENCIA;Saber como e por que a IA chegou a uma resposta
+ALUCINACAO;Quando a IA inventa uma informação com muita confiança
+DESINFORMACAO;Conteúdo falso espalhado, muitas vezes de forma automática
+SEGURANCA;Proteger sistemas e dados contra uso indevido
+CONFIABILIDADE;Qualidade de um sistema que acerta de forma consistente
+ETICA;Princípios sobre o que é certo ao criar e usar tecnologia
+SUPERVISAO;Pessoa que revisa e confirma o que a IA sugere
+VERIFICACAO;Conferir uma informação antes de acreditar nela
